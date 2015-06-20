@@ -1,3 +1,44 @@
+/*
+   Home Control
+   Current capabilities
+    * Monitors RTC and displays time date and indoor temperature 
+    * Logs date and temperature every 30 minutes on the hour
+    * Controls pump in rainwater cistern and turns on pump based on:
+    *   - ON if secondary tank is empty
+    *   - ON if less than MAX fills per day
+    *   - ON if current hour is between start and end hours
+    *   - ON if equal or more than 8 hours from last pump time
+    *   Note: pump has a float switch that prevents pumping when cistern is empty
+
+   Next Implementation
+   Monitors outdoor and indoor tempurature and status of rainwater storage barrel.
+   Enables or disables boiler master switch, fuel pump switch and burner switch depending upon:
+    * Indoor Temperature
+    * Outdoor Temperature History
+    * Month of the year
+    * Occupancy status of the home
+    
+    Future Improvements
+    * Create single function for data logging.  Currently data logging for pump and RTC display are redundant.
+    * Utilize GSM module for text based notifications and instruction
+    * Display status via WIFI to internet.
+    * Create libraries for reusable sections of code.
+    * Add RTC reset within core code to eliminate need to load separate RTC update sketch
+    * Add DHT22 Sensor
+    * Add Motion detection to control backlight on LCD
+    * Add menu system
+ 
+ Debounce Routine:
+ by David A. Mellis
+ modified 30 Aug 2011
+ by Limor Fried
+ modified 28 Dec 2012
+ by Mike Walters
+
+ RTC Routine:
+ 
+    
+ */
 #include <SPI.h>
 #include <Wire.h>
 #include <Time.h>
