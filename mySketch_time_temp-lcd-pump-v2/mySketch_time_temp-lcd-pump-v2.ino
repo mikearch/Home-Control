@@ -46,46 +46,36 @@
 #include <DS1307RTC.h>
 #include <SD.h>
 
-File weatherfile;
+File weatherfile;               // name of file on SD for logging data
 
 float temp_in_celsius = 0;
 float temp_in_kelvin=0;
-float temp_sensor_adj = .9;
+float temp_sensor_adj = .9;     // interior sensor #1 calibration
 
-const int buttonPin = 2;      // the number of the pushbutton pin for backlight
-const int buttonPinlog = 3;   // the number of the pushbutton for enabling-disabling logging
-const int pumpPin = 4;        // number of pin for operating pump
-const int pumpPinstatus = 5;  // number of pin to sense pump on
-const int buttonPin_pump = 6;    // the number of the pushbutton pin for pump control
+const int buttonPin = 2;        // the number of the pushbutton pin for backlight
+const int buttonPinlog = 3;     // the number of the pushbutton for enabling-disabling logging
+const int pumpPin = 4;          // number of pin for operating pump
+const int buttonPin_pump = 6;   // the number of the pushbutton pin for pump control
 
-// Variables will change:
+int buttonState_pump;           // the current reading from the input pin for pump enabling
+int lastButtonState_pump = LOW; // the previous reading from the input pin for pump enabling
 
-int buttonState_pump;             // the current reading from the input pin
-int lastButtonState_pump = LOW;   // the previous reading from the input pin
-
-// the following variables are long's because the time, measured in miliseconds,
-// will quickly become a bigger number than can be stored in an int.
-long lastDebounceTime = 0;  // the last time the output pin was toggled
-long debounceDelay = 50;    // the debounce time; increase if the output flickers
-
-
+long lastDebounceTime = 0;      // the last time the output pin was toggled
+long debounceDelay = 50;        // the debounce time; increase if the output flickers
 
 int currentMinsold =0;
-int buttonState = 0;          // variable for reading the pushbutton status
-int buttonStateLog = 0;       // variable for reading state of data logging pushbutton
+int buttonState = 0;            // variable for reading the backlight pushbutton status
+int buttonStateLog = 0;         // variable for reading state of data logging pushbutton
 int tankswitch = 0;
-int water_str_hr = 6;         //fill tank no earlier than - 24hr
-int water_end_hr = 15;        //fill tank no later than
-int water_tank_fills = 0;     //counts daily fills
-int water_fills_max = 1;      //maximun number of daily tank fills
-int max_fill_time = 120;       //max time in seconds for tank to fill
-int fill_start_second = 0;
-int fill_start_minute =0;
-int curr_fill_second = 0;
-int min_time_next_fill = 8;   //max time in hours until next fill
-int curr_fill_hr = 0;
-int last_fill_hr =0;
-int curr_fill_min = 0;
+int water_str_hr = 6;           //fill tank no earlier than - 24hr
+int water_end_hr = 15;          //fill tank no later than
+int water_tank_fills = 0;       //total of current daily fills -resets to zero each day
+int water_fills_max = 1;        //maximun number of daily tank fills
+int max_fill_time = 120;        //max time in seconds for tank to fill
+int min_time_next_fill = 8;     //max time in hours until next fill
+int curr_fill_hr = 0;           //current hour of pumping attempt
+int last_fill_hr =0;            //last successful pumping
+
 
 boolean pump_on = false;
 boolean pump_ok_run = false;
@@ -96,19 +86,16 @@ LiquidCrystal_I2C lcd(0x27,20,4);  // set the LCD address to 0x27 for a 16 chars
 
 void setup() 
 {
-    // initialize the pushbutton pin as an input:
   pinMode(buttonPin, INPUT);
-
   pinMode(buttonPin_pump, INPUT);
-
-
-  
   pinMode(pumpPin, OUTPUT);
-  digitalWrite(pumpPin, HIGH);
-  pinMode(pumpPinstatus, INPUT);
+  
+  digitalWrite(pumpPin, HIGH);   //HIGH signal assures pump is off when sketch starts
+ 
   Serial.begin(9600);
   lcd.init();                      // initialize the lcd 
   lcd.init();
+  
   // Print a message to the LCD.
   lcd.backlight();
   lcd.setCursor(0,0);
@@ -122,44 +109,42 @@ void setup()
   
   while (!Serial) ; // wait for serial
   delay(200);
+  
   SD.begin();
 }
 
 void loop() 
 {
-  button_read();
+  button_read();            //reads and debounces pump enable button
       
 // --------------BUTTON FOR TURNING OFF DISPLAY BACKLIGHT
-    buttonState = digitalRead(buttonPin);
-   
+    buttonState = digitalRead(buttonPin);   
       // check if the pushbutton is pressed.
-      // if it is, the buttonState is HIGH:
  
-    if (buttonState == HIGH) 
-    {     
-      // turn display off    
+    if (buttonState == HIGH) // turn display off
+    {             
       lcd.noDisplay();
       lcd.noBacklight();  
-     } 
-    
-    else 
-    {
-      // turn LED off:
+     }    
+    else                      //leave display on
+    {  
       lcd.display();
       lcd.backlight();  
     }
+    
  //----------------END OF DISPLAY BUTTON 
 
- lcd.setCursor(6,3);
+ //----------------DISPLAYS ENABLE STATUS OF PUMP
+ lcd.setCursor(6,3);          //location for pump enable status
  if (pump_enable == true)
  {
   lcd.print("enabled");
  }
-
  else
  {
   lcd.print ("disabled"); 
  }
+ 
  //---------------GETS AND CALCULATES CELSIUS TEMPERATURE
     //Reads the input and converts it to Kelvin degrees
   temp_in_kelvin = analogRead(0) * 0.004882812 * 100;
@@ -172,12 +157,10 @@ void loop()
   lcd.setCursor(13,2);
   lcd.print(temp_in_celsius);
   lcd.setCursor(0,3);
-  //lcd.print(analogRead(0));
-  //lcd.print(analogRead(1));
 //-----------------END OF TEMPURATURE DISPLAY
 
 
-//-----------------GETS AND DIPLAYS TIME AND DATE AND DECIDES TO LOG OR NOT
+//-----------------GETS AND DISPLAYS TIME AND DATE 
   //Reads RTC
   tmElements_t tm;
   int currentMins = (tm.Minute);  //used to permit logging to skip on 15 minute intervals
@@ -218,7 +201,9 @@ void loop()
         }
               //delay(9000);
     }
-      //-----TEST IF DATA IN ON 30 MINUTE INTERVAL
+      //------END OF DATE AND TIME DISPLAY   
+      
+      //-----TEST IF DATA IN ON 30 MINUTE INTERVAL FOR LOGGING INTERVAL
       if (currentMins != currentMinsold)   // skips logging if previouslz logged on the 15 interval
       { 
             if (currentMins == 00 || currentMins == 30)
@@ -233,15 +218,15 @@ void loop()
   delay(1000);
   
   
-  if (pump_enable == true)
+  if (pump_enable == true)            //Runs only if pump is enabled
   {
-    pump_ok_run = pump_run_test();
-    if (pump_ok_run == true)
+    pump_ok_run = pump_run_test();    //Calls pump run test
+    if (pump_ok_run == true)          //Checks if pump passes test
     {  
-      pump_run();
-      pump_ok_run = false;
+      pump_run();                     //Runs pump
+      pump_ok_run = false;            //Resets variable to false
     }
-     digitalWrite(pumpPin,HIGH);
+     digitalWrite(pumpPin,HIGH);      //Writes to Pump pin to turn off relay
   }
 }
 
@@ -330,29 +315,26 @@ void data_log ()
  
  //----------FUNCTIONS TO CONTROL PUMP
    
- void pump_run()
+ void pump_run()                     //Runs pump
   {
-   pump_log_on = true;
-   log_pump();
-   Serial.println("pump run");
-  tmElements_t tm;
+   pump_log_on = true;               //Flag to indicate that log is a "pump on" event
+   log_pump();                       //creates "pump on" record
+   tmElements_t tm;
    if (RTC.read(tm)) 
    {
   for( int counter=0; counter < max_fill_time; counter++)
     {
-    digitalWrite(pumpPin, LOW);
+    digitalWrite(pumpPin, LOW);       //Turns pump on for Maxfilltime
     delay(1000);
     }
-  last_fill_hr = (tm.Hour);
-  digitalWrite(pumpPin, HIGH);
-  pump_log_on = false;
-  log_pump();
+  last_fill_hr = (tm.Hour);           //Hour of current fill for next fill comparison
+  digitalWrite(pumpPin, HIGH);        //Turns pump off
+  pump_log_on = false;                //Flag to indicate that log is a "pump off" event
+  log_pump();                         //creates "pump off" log
    }
- }
-  
+  }
 
-
-boolean pump_run_test ()
+boolean pump_run_test ()              //Tests if appropriate to run pump
 {
   boolean pump = false;
   tmElements_t tm;
@@ -360,17 +342,17 @@ boolean pump_run_test ()
    {
   if ((tm.Hour) == 0)
     {
-     water_tank_fills = 0; 
+     water_tank_fills = 0;            //Resets count of tank fills at start of new day
     }
     
-   if ((tm.Hour) > water_str_hr  && (tm.Hour) < water_end_hr)
+   if ((tm.Hour) > water_str_hr  && (tm.Hour) < water_end_hr) //checks of time is during pump run times
    {
-      if (water_tank_fills >= water_fills_max)
+      if (water_tank_fills >= water_fills_max)      //checks if tank has been filled enough todaz
       {
         pump = false;
         return pump;
       }
-      if (((tm.Hour)- last_fill_hr) > min_time_next_fill)
+      if (((tm.Hour)- last_fill_hr) > min_time_next_fill) //checks how many hours since last fill
       {
         water_tank_fills = water_tank_fills +1;
         pump = true;
