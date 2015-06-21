@@ -56,6 +56,7 @@ const int buttonPin = 2;        // the number of the pushbutton pin for backligh
 const int buttonPinlog = 3;     // the number of the pushbutton for enabling-disabling logging
 const int pumpPin = 4;          // number of pin for operating pump
 const int buttonPin_pump = 6;   // the number of the pushbutton pin for pump control
+const int buttonPin_logging =7; // the number of the pin for the logging switch
 
 int buttonState_pump;           // the current reading from the input pin for pump enabling
 int lastButtonState_pump = LOW; // the previous reading from the input pin for pump enabling
@@ -81,6 +82,7 @@ boolean pump_on = false;
 boolean pump_ok_run = false;
 boolean pump_enable = false;
 boolean pump_log_on = false;
+boolean logging_enable;
 
 LiquidCrystal_I2C lcd(0x27,20,4);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
@@ -89,6 +91,7 @@ void setup()
   pinMode(buttonPin, INPUT);
   pinMode(buttonPin_pump, INPUT);
   pinMode(pumpPin, OUTPUT);
+  pinMode (buttonPin_logging, INPUT);
   
   digitalWrite(pumpPin, HIGH);   //HIGH signal assures pump is off when sketch starts
  
@@ -98,14 +101,12 @@ void setup()
   
   // Print a message to the LCD.
   lcd.backlight();
-  lcd.setCursor(0,0);
-  lcd.print("Time:");
   lcd.setCursor(0,1);
-  lcd.print("Date:");
-  lcd.setCursor(0,2);
   lcd.print("Temperature:");
-  lcd.setCursor(0,3);
+  lcd.setCursor(0,2);
   lcd.print("Pump:");
+  lcd.setCursor(0,3);
+  lcd.print("Log :");
   
   while (!Serial) ; // wait for serial
   delay(200);
@@ -115,6 +116,17 @@ void setup()
 
 void loop() 
 {
+//------------Displays status of logging
+  logging_enable = digitalRead(buttonPin_logging);
+  lcd.setCursor(6,3);
+ if (logging_enable == true)
+ {
+  lcd.print("Enabled  ");
+ }
+  else
+  {
+    lcd.print("Disabled");
+  }
   button_read();            //reads and debounces pump enable button
       
 // --------------BUTTON FOR TURNING OFF DISPLAY BACKLIGHT
@@ -135,14 +147,14 @@ void loop()
  //----------------END OF DISPLAY BUTTON 
 
  //----------------DISPLAYS ENABLE STATUS OF PUMP
- lcd.setCursor(6,3);          //location for pump enable status
+ lcd.setCursor(6,2);          //location for pump enable status
  if (pump_enable == true)
  {
-  lcd.print("enabled");
+  lcd.print("Enabled");
  }
  else
  {
-  lcd.print ("disabled"); 
+  lcd.print ("Disabled"); 
  }
  
  //---------------GETS AND CALCULATES CELSIUS TEMPERATURE
@@ -154,7 +166,7 @@ void loop()
  //----------------END OF TEMPERATURE CALCULATION
 
  //----------------DISPLAYS TEMPERATURE 
-  lcd.setCursor(13,2);
+  lcd.setCursor(13,1);
   lcd.print(temp_in_celsius);
   lcd.setCursor(0,3);
 //-----------------END OF TEMPURATURE DISPLAY
@@ -167,7 +179,7 @@ void loop()
    
   if (RTC.read(tm)) 
    {
-      lcd.setCursor(6,0);
+      lcd.setCursor(0,0);
       if ((tm.Hour)<10) 
          {
               lcd.print("0");  
@@ -180,7 +192,7 @@ void loop()
               lcd.print("0");
          }
       lcd.print(tm.Minute);
-      lcd.setCursor(6,1);
+      lcd.print("     ");
       lcd.print(tm.Day); 
       lcd.print("/");
       lcd.print(tm.Month);
@@ -204,14 +216,17 @@ void loop()
       //------END OF DATE AND TIME DISPLAY   
       
       //-----TEST IF DATA IN ON 30 MINUTE INTERVAL FOR LOGGING INTERVAL
-      if (currentMins != currentMinsold)   // skips logging if previouslz logged on the 15 interval
-      { 
+      if (logging_enable== true)            // skips logging if logging switch is disabled
+      {
+        if (currentMins != currentMinsold)   // skips logging if previouslz logged on the 15 interval
+        { 
             if (currentMins == 00 || currentMins == 30)
             {
                 data_log ();
             }
            
         currentMinsold = currentMins;
+        }
       }
       //-----END OF 30 MINUTE TEST FOR LOGGING
       
