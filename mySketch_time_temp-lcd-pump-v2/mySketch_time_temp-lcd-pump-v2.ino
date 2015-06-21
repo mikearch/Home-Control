@@ -6,7 +6,7 @@
     * Controls pump in rainwater cistern and turns on pump based on:
     *   - ON if secondary tank is empty
     *   - ON if less than MAX fills per day
-    *   - ON if current hour is between start and end hours
+    *   - ON if current hour is greater than start and less than end hours
     *   - ON if equal or more than 8 hours from last pump time
     *   Note: pump has a float switch that prevents pumping when cistern is empty
 
@@ -355,6 +355,7 @@ boolean pump_run_test ()              //Tests if appropriate to run pump
       if (((tm.Hour)- last_fill_hr) > min_time_next_fill) //checks how many hours since last fill
       {
         water_tank_fills = water_tank_fills +1;
+        last_fill_hr = (tm.Hour);
         pump = true;
         return pump;
       }
