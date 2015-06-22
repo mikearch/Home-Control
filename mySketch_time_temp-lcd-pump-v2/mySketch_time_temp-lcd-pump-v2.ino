@@ -347,6 +347,7 @@ void data_log ()
   pump_log_on = false;                //Flag to indicate that log is a "pump off" event
   log_pump();                         //creates "pump off" log
    }
+   return;
   }
 
 boolean pump_run_test ()              //Tests if appropriate to run pump
